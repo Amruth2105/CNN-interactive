@@ -46,12 +46,20 @@ if reset_btn:
 
 # --- Model Initialization ---
 if 'model' not in st.session_state:
-    # Initialize Model with dynamic filters
-    conv = cnn_lib.Conv3x3(st.session_state.num_filters) 
-    pool = cnn_lib.MaxPool2()
-    # Calc softmax input size: 28 -> 26 (conv) -> 13 (pool)
-    softmax = cnn_lib.Softmax(13 * 13 * st.session_state.num_filters, 10)
-    st.session_state.model = [conv, pool, softmax]
+    # Try loading pretrained
+    try:
+        if num_filters == 8: # Only load if default config
+            st.session_state.model = cnn_lib.load_model("pretrained_model.pkl")
+            st.toast("Loaded Pre-trained Model!")
+        else:
+            raise ValueError("Config change")
+    except:
+        # Initialize Random
+        conv = cnn_lib.Conv3x3(st.session_state.num_filters) 
+        pool = cnn_lib.MaxPool2()
+        softmax = cnn_lib.Softmax(13 * 13 * st.session_state.num_filters, 10)
+        st.session_state.model = [conv, pool, softmax]
+    
     st.session_state.trained_steps = 0
     st.session_state.train_losses = []
     st.session_state.train_accs = []
@@ -118,19 +126,54 @@ with tab1:
     with col2:
         st.subheader("Network Internals")
         if predict_btn and canvas.image_data is not None:
-            # Preprocess
-            # Resize to 28x28
+            # Preprocess with Center of Mass
             from PIL import Image
+            import scipy.ndimage
+            
+            # 1. Resize to 20x20 initially (keeping aspect ratio/padding usually better but let's just do 20x20 and pad)
             img_pil = Image.fromarray(canvas.image_data.astype('uint8')).convert('L')
-            img_resized = img_pil.resize((28, 28))
-            img_array = np.array(img_resized)
+            img_resized = img_pil.resize((20, 20))
+            img_array_small = np.array(img_resized)
             
-            # Forward Pass
-            conv, pool, softmax = st.session_state.model
+            # 2. Place in 28x28 canvas centered by Center of Mass
+            final_img = np.zeros((28, 28))
             
-            # 1. Input
-            st.write("**1. Input Image (28x28)**")
-            st.image(img_array, width=100)
+            # Calculate Center of Mass
+            cy, cx = scipy.ndimage.center_of_mass(img_array_small)
+            if np.isnan(cy) or np.isnan(cx):
+                cy, cx = 10, 10 # Fallback
+                
+            # Shift to center (14, 14)
+            shift_y = 14 - cy
+            shift_x = 14 - cx
+            
+            # Paste into center
+            # Simple integer shift logic
+            start_y = int(max(0, shift_y))
+            start_x = int(max(0, shift_x))
+            
+            # We copy the 20x20 into the 28x28 at calculated offset
+            # (Simplified logic: actually centering the bounding box is easier, but COM is standard)
+            # Let's try simple Bounding Box centering instead? It's more robust for digits.
+            # actually let's stick to standard "Paste 20x20 in center of 28x28" if user draws big enough
+            # But let's use the CoM logic to be smarter.
+            
+            # Correct logic:
+            # 1. Pad 20x20 image to 28x28 (centered blindly)
+            # 2. Shift based on CoM difference
+            
+            pad_y = 4
+            pad_x = 4
+            final_img[pad_y:pad_y+20, pad_x:pad_x+20] = img_array_small
+            
+            # Recalculate CoM of this 28x28 image
+            cy, cx = scipy.ndimage.center_of_mass(final_img)
+            if not np.isnan(cy):
+                shift_y = 14 - cy
+                shift_x = 14 - cx
+                final_img = scipy.ndimage.shift(final_img, shift=[shift_y, shift_x])
+            
+            img_array = final_img
             
             # Normalize for network
             x = (img_array / 255.0) - 0.5

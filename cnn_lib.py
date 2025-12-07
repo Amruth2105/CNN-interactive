@@ -224,3 +224,17 @@ def train_step(image, label, layers, alpha=0.005):
 
     return loss, acc
 
+    return loss, acc
+
+import pickle
+
+def save_model(layers, filename="model.pkl"):
+    """Saves the model layers to a file."""
+    with open(filename, 'wb') as f:
+        pickle.dump(layers, f)
+    print(f"Model saved to {filename}")
+
+def load_model(filename="model.pkl"):
+    """Loads the model layers from a file."""
+    with open(filename, 'rb') as f:
+        return pickle.load(f)
