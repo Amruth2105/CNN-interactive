@@ -185,7 +185,7 @@ with tab1:
             st.write("### Step 0: The Input & Filters")
             col_in, col_filt = st.columns([1, 2])
             with col_in:
-                st.image(img_array, width=100, caption="Input (28x28)")
+                st.image(img_array, width=100, caption="Input (28x28)", clamp=True)
             with col_filt:
                 st.write("**The Filters (Weights)**")
                 # Normalize filters for display
