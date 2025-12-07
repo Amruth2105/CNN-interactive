@@ -61,8 +61,13 @@ if 'model' not in st.session_state:
         st.session_state.model = [conv, pool, softmax]
     
     st.session_state.trained_steps = 0
-    st.session_state.train_losses = []
     st.session_state.train_accs = []
+
+# Validate Model integrity
+if 'model' in st.session_state and (not isinstance(st.session_state.model, list) or len(st.session_state.model) != 3):
+    st.warning("Model state corrupted. Resetting...")
+    del st.session_state.model
+    st.rerun()
 
 # --- Training Logic ---
 if train_btn:
@@ -177,6 +182,9 @@ with tab1:
             
             # Normalize for network
             x = (img_array / 255.0) - 0.5
+            
+            # Ensure model is unpacked correctly
+            conv, pool, softmax = st.session_state.model
             
             # 2. Conv Layer
             out_conv = conv.forward(x)
