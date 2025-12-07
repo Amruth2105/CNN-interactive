@@ -64,11 +64,12 @@ if 'model' not in st.session_state:
     st.session_state.train_losses = []
     st.session_state.train_accs = []
 
-# --- Data Loading (Ensure it exists) ---
-if 'X_train' not in st.session_state or 'y_train' not in st.session_state:
+    st.session_state.train_losses = []
+    st.session_state.train_accs = []
+
+# --- Data Loading ---
+def load_data():
     try:
-        # Load a subset for responsiveness, or full set if possible
-        # We'll load 1000 images for the web app to be fast
         X_all, y_all = mnist_loader.load_mnist(num_images=2000) 
         st.session_state.X_train = X_all
         st.session_state.y_train = y_all
@@ -77,6 +78,13 @@ if 'X_train' not in st.session_state or 'y_train' not in st.session_state:
         st.error(f"Failed to load data: {e}")
         st.session_state.X_train = []
         st.session_state.y_train = []
+
+if 'X_train' not in st.session_state or len(st.session_state.X_train) == 0:
+    load_data()
+
+# Sidebar Reload Button
+if st.sidebar.button("Reload Training Data"):
+    load_data()
 
 # Ensure all state variables exist (fix for potential corruption)
 if 'trained_steps' not in st.session_state:
