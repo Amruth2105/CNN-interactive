@@ -238,17 +238,21 @@ with tab1:
 
 with tab2:
     st.subheader("Training Progress")
-    st.write(f"Total Steps Trained: **{st.session_state.trained_steps}**")
+    trained_steps = st.session_state.get('trained_steps', 0)
+    st.write(f"Total Steps Trained: **{trained_steps}**")
     
-    if len(st.session_state.train_losses) > 0:
+    train_losses = st.session_state.get('train_losses', [])
+    train_accs = st.session_state.get('train_accs', [])
+    
+    if len(train_losses) > 0:
         # Smooth plots
         def moving_average(a, n=50):
             ret = np.cumsum(a, dtype=float)
             ret[n:] = ret[n:] - ret[:-n]
             return ret[n - 1:] / n
 
-        st.line_chart(st.session_state.train_losses)
-        st.line_chart(st.session_state.train_accs)
+        st.line_chart(train_losses)
+        st.line_chart(train_accs)
     else:
         st.info("Train the model using the sidebar to see metrics.")
 
