@@ -98,31 +98,34 @@ if train_btn:
     X_train = st.session_state.X_train
     y_train = st.session_state.y_train
     
-    progress_bar = st.sidebar.progress(0)
-    step_loss = []
-    step_acc = []
-    
-    start_idx = st.session_state.trained_steps % len(X_train)
-    
-    for i in range(batch_size):
-        idx = (start_idx + i) % len(X_train)
-        img = X_train[idx]
-        label = y_train[idx]
+    if len(X_train) == 0:
+        st.error("Training data not loaded. Cannot train.")
+    else:
+        progress_bar = st.sidebar.progress(0)
+        step_loss = []
+        step_acc = []
         
-        loss, acc = cnn_lib.train_step(img, label, st.session_state.model, learning_rate)
-        step_loss.append(loss)
-        step_acc.append(acc)
-        progress_bar.progress((i + 1) / batch_size)
+        start_idx = st.session_state.trained_steps % len(X_train)
         
-    st.session_state.trained_steps += batch_size
-    # Safe update of state
-    if 'train_losses' not in st.session_state:
-        st.session_state.train_losses = []
-    if 'train_accs' not in st.session_state:
-        st.session_state.train_accs = []
-        
-    st.session_state.train_losses.extend(step_loss)
-    st.session_state.train_accs.extend(step_acc)
+        for i in range(batch_size):
+            idx = (start_idx + i) % len(X_train)
+            img = X_train[idx]
+            label = y_train[idx]
+            
+            loss, acc = cnn_lib.train_step(img, label, st.session_state.model, learning_rate)
+            step_loss.append(loss)
+            step_acc.append(acc)
+            progress_bar.progress((i + 1) / batch_size)
+            
+        st.session_state.trained_steps += batch_size
+        # Safe update of state
+        if 'train_losses' not in st.session_state:
+            st.session_state.train_losses = []
+        if 'train_accs' not in st.session_state:
+            st.session_state.train_accs = []
+            
+        st.session_state.train_losses.extend(step_loss)
+        st.session_state.train_accs.extend(step_acc)
 
 # --- Layout ---
 st.title("🧠 Interactive NumPy CNN")
