@@ -143,6 +143,8 @@ if train_btn:
             
         st.session_state.train_losses.extend(step_loss)
         st.session_state.train_accs.extend(step_acc)
+        
+        st.toast(f"Trained {batch_size} steps! Avg Loss: {np.mean(step_loss):.4f}")
 
 # --- Layout ---
 st.title("🧠 Interactive NumPy CNN")
@@ -175,11 +177,11 @@ with tab1:
             key=st.session_state.canvas_key,
         )
         
-        predict_btn = st.button("Predict")
+        st.caption("Draw a digit above to see Real-time Prediction.")
         
     with col2:
         st.subheader("Network Internals")
-        if predict_btn and canvas.image_data is not None:
+        if canvas.image_data is not None:
             # Preprocess with Center of Mass
             from PIL import Image
             import scipy.ndimage
@@ -289,7 +291,6 @@ with tab1:
             st.success(f"## Prediction: **{prediction}**")
             st.bar_chart(probs)
 
-with tab2:
 with tab2:
     st.subheader("Training Inspection")
     
