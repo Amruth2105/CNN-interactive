@@ -112,10 +112,27 @@ if train_btn:
             img = X_train[idx]
             label = y_train[idx]
             
+            
             loss, acc = cnn_lib.train_step(img, label, st.session_state.model, learning_rate)
             step_loss.append(loss)
             step_acc.append(acc)
             progress_bar.progress((i + 1) / batch_size)
+            
+            # Capture last example for visualization (only on last step of batch)
+            if i == batch_size - 1:
+                st.session_state.last_train_img = img
+                st.session_state.last_train_label = label
+                # Quick forward pass to see what it *would* predict (or rather what it did)
+                # Since train_step returns loss/acc but not pred, let's just cheat and infer
+                # Actually acc is 1 if correct.
+                # Let's do a quick forward for robust display
+                c, p, s = st.session_state.model
+                # Forward (re-run)
+                out = c.forward(img)
+                out = cnn_lib.relu(out)
+                out = p.forward(out)
+                probs = s.forward(out)
+                st.session_state.last_train_pred = np.argmax(probs)
             
         st.session_state.trained_steps += batch_size
         # Safe update of state
@@ -273,24 +290,48 @@ with tab1:
             st.bar_chart(probs)
 
 with tab2:
-    st.subheader("Training Progress")
-    trained_steps = st.session_state.get('trained_steps', 0)
-    st.write(f"Total Steps Trained: **{trained_steps}**")
+with tab2:
+    st.subheader("Training Inspection")
     
-    train_losses = st.session_state.get('train_losses', [])
-    train_accs = st.session_state.get('train_accs', [])
+    # Init vars for inspection
+    if 'last_train_img' not in st.session_state:
+        st.session_state.last_train_img = None
+        st.session_state.last_train_label = None
+        st.session_state.last_train_pred = None
     
-    if len(train_losses) > 0:
-        # Smooth plots
-        def moving_average(a, n=50):
-            ret = np.cumsum(a, dtype=float)
-            ret[n:] = ret[n:] - ret[:-n]
-            return ret[n - 1:] / n
-
-        st.line_chart(train_losses)
-        st.line_chart(train_accs)
-    else:
-        st.info("Train the model using the sidebar to see metrics.")
+    col_metrics, col_visual = st.columns([1, 1])
+    
+    with col_metrics:
+        st.metric("Total Steps", st.session_state.get('trained_steps', 0))
+        
+        train_losses = st.session_state.get('train_losses', [])
+        if len(train_losses) > 0:
+            avg_loss = np.mean(train_losses[-50:]) if len(train_losses) > 50 else np.mean(train_losses)
+            st.metric("Recent Loss", f"{avg_loss:.4f}")
+            
+            st.line_chart(train_losses[-100:], height=150)
+            st.caption("Loss Trend (Lower is better)")
+            
+    with col_visual:
+        st.markdown("##### Last Training Example")
+        if st.session_state.last_train_img is not None:
+            # Show Image
+            img = st.session_state.last_train_img
+            label = st.session_state.last_train_label
+            pred = st.session_state.last_train_pred
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                st.image(img, width=100, caption=f"Truth: {label}", clamp=True)
+            with c2:
+                if pred == label:
+                    st.success(f"AI Guessed: {pred} ✅")
+                else:
+                    st.error(f"AI Guessed: {pred} ❌")
+            
+            st.info(f"The model saw this **{label}**, guessed **{pred}**, and updated its weights to reduce the error.")
+        else:
+            st.info("Train at least one step to inspect the process!")
 
 with tab3:
     st.markdown("""
