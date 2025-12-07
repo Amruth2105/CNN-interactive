@@ -61,6 +61,7 @@ if 'model' not in st.session_state:
         st.session_state.model = [conv, pool, softmax]
     
     st.session_state.trained_steps = 0
+    st.session_state.train_losses = []
     st.session_state.train_accs = []
 
 # Validate Model integrity
