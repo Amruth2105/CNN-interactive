@@ -4,9 +4,11 @@ import gzip
 import numpy as np
 import os
 
-def load_mnist():
+def load_mnist(num_images=None):
     """
     Downloads and parses MNIST dataset.
+    Args:
+        num_images: Optional limit on number of training images to return.
     Returns: (train_images, train_labels), (test_images, test_labels)
     """
     base_url = "https://storage.googleapis.com/cvdf-datasets/mnist/"
@@ -38,6 +40,11 @@ def load_mnist():
     train_labels = download_and_parse(files["train_lbl"], label=True)
     test_images = download_and_parse(files["test_img"])
     test_labels = download_and_parse(files["test_lbl"], label=True)
+
+    # Limit training set if requested
+    if num_images is not None:
+        train_images = train_images[:num_images]
+        train_labels = train_labels[:num_images]
 
     return (train_images, train_labels), (test_images, test_labels)
 
