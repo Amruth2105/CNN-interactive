@@ -70,9 +70,9 @@ if 'model' not in st.session_state:
 # --- Data Loading ---
 def load_data():
     try:
-        X_all, y_all = mnist_loader.load_mnist(num_images=2000) 
-        st.session_state.X_train = X_all
-        st.session_state.y_train = y_all
+        (X_train, y_train), (X_test, y_test) = mnist_loader.load_mnist(num_images=2000) 
+        st.session_state.X_train = X_train
+        st.session_state.y_train = y_train
         st.toast("MNIST Data Loaded!")
     except Exception as e:
         st.error(f"Failed to load data: {e}")
