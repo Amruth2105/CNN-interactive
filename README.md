@@ -1,5 +1,7 @@
 # CNN Interactive
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://cnn-interactive-mguujakeyghanzjj4ptz8j.streamlit.app/)
+
 An educational, interactive Convolutional Neural Network (CNN) built entirely from scratch using **NumPy** and visualized with **Streamlit**.
 
 ## Features
