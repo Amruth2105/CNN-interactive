@@ -60,8 +60,15 @@ if 'model' not in st.session_state:
         softmax = cnn_lib.Softmax(13 * 13 * st.session_state.num_filters, 10)
         st.session_state.model = [conv, pool, softmax]
     
-    st.session_state.trained_steps = 0
     st.session_state.train_losses = []
+    st.session_state.train_accs = []
+
+# Ensure all state variables exist (fix for potential corruption)
+if 'trained_steps' not in st.session_state:
+    st.session_state.trained_steps = 0
+if 'train_losses' not in st.session_state:
+    st.session_state.train_losses = []
+if 'train_accs' not in st.session_state:
     st.session_state.train_accs = []
 
 # Validate Model integrity
