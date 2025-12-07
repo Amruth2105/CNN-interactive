@@ -12,6 +12,7 @@ st.set_page_config(page_title="NumPy CNN Visualizer", layout="wide")
 
 # --- Sidebar ---
 st.sidebar.title("Training Control")
+st.sidebar.caption("v1.1.0 (Mobile Fix)")
 
 # Hyperparameters
 learning_rate = st.sidebar.slider("Learning Rate", 0.001, 0.05, 0.01, 0.001)
@@ -100,6 +101,12 @@ if train_btn:
         progress_bar.progress((i + 1) / batch_size)
         
     st.session_state.trained_steps += batch_size
+    # Safe update of state
+    if 'train_losses' not in st.session_state:
+        st.session_state.train_losses = []
+    if 'train_accs' not in st.session_state:
+        st.session_state.train_accs = []
+        
     st.session_state.train_losses.extend(step_loss)
     st.session_state.train_accs.extend(step_acc)
 
