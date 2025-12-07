@@ -76,6 +76,15 @@ with tab1:
     
     with col1:
         st.subheader("Draw a Digit")
+        
+        # Canvas Clear Logic
+        if 'canvas_key' not in st.session_state:
+            st.session_state.canvas_key = "canvas"
+            
+        if st.button("Clear Canvas"):
+            st.session_state.canvas_key = f"canvas_{time.time()}"
+            st.rerun()
+            
         canvas = st_canvas(
             fill_color="#000000",
             stroke_width=20,
@@ -84,7 +93,7 @@ with tab1:
             height=280,
             width=280,
             drawing_mode="freedraw",
-            key="canvas",
+            key=st.session_state.canvas_key,
         )
         
         predict_btn = st.button("Predict")
