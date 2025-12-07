@@ -150,43 +150,24 @@ with tab1:
             from PIL import Image
             import scipy.ndimage
             
-            # 1. Resize to 20x20 initially (keeping aspect ratio/padding usually better but let's just do 20x20 and pad)
+            # 1. Resize to 20x20
             img_pil = Image.fromarray(canvas.image_data.astype('uint8')).convert('L')
             img_resized = img_pil.resize((20, 20))
             img_array_small = np.array(img_resized)
             
             # 2. Place in 28x28 canvas centered by Center of Mass
             final_img = np.zeros((28, 28))
-            
-            # Calculate Center of Mass
             cy, cx = scipy.ndimage.center_of_mass(img_array_small)
             if np.isnan(cy) or np.isnan(cx):
-                cy, cx = 10, 10 # Fallback
-                
-            # Shift to center (14, 14)
+                cy, cx = 10, 10
+            
             shift_y = 14 - cy
             shift_x = 14 - cx
-            
-            # Paste into center
-            # Simple integer shift logic
-            start_y = int(max(0, shift_y))
-            start_x = int(max(0, shift_x))
-            
-            # We copy the 20x20 into the 28x28 at calculated offset
-            # (Simplified logic: actually centering the bounding box is easier, but COM is standard)
-            # Let's try simple Bounding Box centering instead? It's more robust for digits.
-            # actually let's stick to standard "Paste 20x20 in center of 28x28" if user draws big enough
-            # But let's use the CoM logic to be smarter.
-            
-            # Correct logic:
-            # 1. Pad 20x20 image to 28x28 (centered blindly)
-            # 2. Shift based on CoM difference
             
             pad_y = 4
             pad_x = 4
             final_img[pad_y:pad_y+20, pad_x:pad_x+20] = img_array_small
             
-            # Recalculate CoM of this 28x28 image
             cy, cx = scipy.ndimage.center_of_mass(final_img)
             if not np.isnan(cy):
                 shift_y = 14 - cy
@@ -194,53 +175,84 @@ with tab1:
                 final_img = scipy.ndimage.shift(final_img, shift=[shift_y, shift_x])
             
             img_array = final_img
-            
-            # Normalize for network
             x = (img_array / 255.0) - 0.5
             
             # Ensure model is unpacked correctly
             conv, pool, softmax = st.session_state.model
             
-            # 2. Conv Layer
+            # --- VISUALIZATION START ---
+            
+            st.write("### Step 0: The Input & Filters")
+            col_in, col_filt = st.columns([1, 2])
+            with col_in:
+                st.image(img_array, width=100, caption="Input (28x28)")
+            with col_filt:
+                st.write("**The Filters (Weights)**")
+                # Normalize filters for display
+                filters = conv.filters
+                f_cols = st.columns(min(conv.num_filters, 8))
+                for i in range(min(conv.num_filters, 8)):
+                   with f_cols[i]:
+                       f_img = filters[i]
+                       f_img = (f_img - f_img.min()) / (f_img.max() - f_img.min() + 1e-9)
+                       st.image(f_img, width=50, clamp=True)
+                st.caption("These 3x3 grids scan the image for matching patterns.")
+            
+            # 1. Convolution
             out_conv = conv.forward(x)
-            st.write(f"**2. Feature Maps (Conv Output)** {out_conv.shape}")
-            st.write("The network detects features like edges and curves.")
+            st.divider()
+            st.write("### Step 1: Convolution (Feature Extraction)")
+            st.write("The filters slide over the image. High values (bright pixels) mean a match found.")
             
-            # Display Filters (Dynamic)
-            num_f = conv.num_filters
-            cols = st.columns(min(num_f, 8)) # Display max 8 per row
+            with st.expander("Show Math 🧮"):
+                st.latex(r"Output_{i,j} = \sum_{m=0}^{2}\sum_{n=0}^{2} Input_{i+m, j+n} \times Filter_{m,n}")
             
-            st.write(f"**2. Feature Maps (Conv Output)** {out_conv.shape}")
-            st.write("The network detects features like edges and curves.")
+            cols = st.columns(min(conv.num_filters, 8))
+            for i in range(min(conv.num_filters, 8)):
+                with cols[i]:
+                    f_map = out_conv[:, :, i]
+                    f_map = (f_map - f_map.min()) / (f_map.max() - f_map.min() + 1e-9)
+                    st.image(f_map, clamp=True, use_container_width=True, caption=f"Map {i}")
+
+            # 2. ReLU
+            st.divider()
+            st.write("### Step 2: Activation (ReLU)")
+            out_relu = cnn_lib.relu(out_conv)
+            st.write("Negative values are removed (set to 0) to introduce non-linearity.")
             
-            for i in range(num_f):
-                # Simple grid logic for display if > 8
-                if i < 8:
-                    with cols[i]:
-                        f_map = out_conv[:, :, i]
-                        f_map = (f_map - f_map.min()) / (f_map.max() - f_map.min() + 1e-9)
-                        st.image(f_map, clamp=True, use_container_width=True)
+            with st.expander("Show Math 🧮"):
+                st.latex(r"ReLU(x) = \max(0, x)")
+
+            cols_r = st.columns(min(conv.num_filters, 8))
+            for i in range(min(conv.num_filters, 8)):
+                with cols_r[i]:
+                    f_map = out_relu[:, :, i]
+                    f_map = (f_map - f_map.min()) / (f_map.max() - f_map.min() + 1e-9)
+                    st.image(f_map, clamp=True, use_container_width=True)
 
             # 3. Pooling
-            out_pool = pool.forward(out_conv)
-            st.write(f"**3. Max Pooling (Downsampled)** {out_pool.shape}")
-            st.write("Reduces size while keeping important features.")
+            st.divider()
+            st.write("### Step 3: Max Pooling (Downsampling)")
+            out_pool = pool.forward(out_relu)
+            st.write(f"The image size is reduced from {out_relu.shape[0]}x{out_relu.shape[1]} to {out_pool.shape[0]}x{out_pool.shape[1]}.")
             
-            cols_p = st.columns(min(num_f, 8))
-            for i in range(num_f):
-                if i < 8:
-                    with cols_p[i]:
-                        f_map = out_pool[:, :, i]
-                        f_map = (f_map - f_map.min()) / (f_map.max() - f_map.min() + 1e-9)
-                        st.image(f_map, clamp=True, use_container_width=True)
+            with st.expander("Show Math 🧮"):
+                st.write("Takes the **maximum** value in every 2x2 window.")
+            
+            cols_p = st.columns(min(conv.num_filters, 8))
+            for i in range(min(conv.num_filters, 8)):
+                with cols_p[i]:
+                    f_map = out_pool[:, :, i]
+                    f_map = (f_map - f_map.min()) / (f_map.max() - f_map.min() + 1e-9)
+                    st.image(f_map, clamp=True, use_container_width=True)
             
             # 4. Softmax
+            st.divider()
+            st.write("### Step 4: Classification (Softmax)")
             probs = softmax.forward(out_pool)
             prediction = np.argmax(probs)
             
-            st.success(f"## Prediction: {prediction}")
-            
-            st.subheader("Class Probabilities")
+            st.success(f"## Prediction: **{prediction}**")
             st.bar_chart(probs)
 
 with tab2:
