@@ -10,34 +10,51 @@ from streamlit_drawable_canvas import st_canvas
 # --- configs ---
 st.set_page_config(page_title="NumPy CNN Visualizer", layout="wide")
 
-# --- session state ---
-if 'model' not in st.session_state:
-    # Initialize Model
-    conv = cnn_lib.Conv3x3(8) # 8 Filters
-    pool = cnn_lib.MaxPool2()
-    softmax = cnn_lib.Softmax(13 * 13 * 8, 10)
-    st.session_state.model = [conv, pool, softmax]
+# --- Sidebar ---
+st.sidebar.title("Training Control")
+
+# Hyperparameters
+learning_rate = st.sidebar.slider("Learning Rate", 0.001, 0.05, 0.01, 0.001)
+with st.sidebar.expander("What is Learning Rate?"):
+    st.write("""
+    The **Learning Rate** controls how much the model changes its internal variables (weights) in response to the estimated error each time the model weights are updated.
+    - **Too high**: The model might overshoot the optimal point and become unstable.
+    - **Too low**: The model will learn very slowly.
+    """)
+
+num_filters = st.sidebar.slider("Number of CNN Filters", 4, 16, 8, help="More filters allow the model to learn more complex features, but make it slower.")
+batch_size = st.sidebar.slider("Steps per Click", 10, 100, 50)
+
+# Reset if filters changed
+if 'num_filters' not in st.session_state:
+    st.session_state.num_filters = num_filters
+    
+if num_filters != st.session_state.num_filters:
+    st.session_state.num_filters = num_filters
+    del st.session_state.model # Force rebuild
     st.session_state.trained_steps = 0
     st.session_state.train_losses = []
     st.session_state.train_accs = []
+    st.rerun()
 
-if 'data' not in st.session_state:
-    # Load Data once
-    (st.session_state.X_train, st.session_state.y_train), (st.session_state.X_test, st.session_state.y_test) = mnist_loader.load_mnist()
-    # Normalize
-    st.session_state.X_train = st.session_state.X_train[:1000] # Limit for speed in demo
-    st.session_state.y_train = st.session_state.y_train[:1000]
-
-# --- Sidebar ---
-st.sidebar.title("Training Control")
-learning_rate = st.sidebar.slider("Learning Rate", 0.001, 0.05, 0.01, 0.001)
-batch_size = st.sidebar.slider("Steps per Click", 10, 100, 50)
 train_btn = st.sidebar.button("Train More Steps")
 reset_btn = st.sidebar.button("Reset Model")
 
 if reset_btn:
     del st.session_state.model
     st.rerun()
+
+# --- Model Initialization ---
+if 'model' not in st.session_state:
+    # Initialize Model with dynamic filters
+    conv = cnn_lib.Conv3x3(st.session_state.num_filters) 
+    pool = cnn_lib.MaxPool2()
+    # Calc softmax input size: 28 -> 26 (conv) -> 13 (pool)
+    softmax = cnn_lib.Softmax(13 * 13 * st.session_state.num_filters, 10)
+    st.session_state.model = [conv, pool, softmax]
+    st.session_state.trained_steps = 0
+    st.session_state.train_losses = []
+    st.session_state.train_accs = []
 
 # --- Training Logic ---
 if train_btn:
@@ -123,26 +140,33 @@ with tab1:
             st.write(f"**2. Feature Maps (Conv Output)** {out_conv.shape}")
             st.write("The network detects features like edges and curves.")
             
-            # Display 8 filters
-            cols = st.columns(8)
-            for i in range(8):
-                with cols[i]:
-                    # Normalize for display
-                    f_map = out_conv[:, :, i]
-                    f_map = (f_map - f_map.min()) / (f_map.max() - f_map.min() + 1e-9)
-                    st.image(f_map, clamp=True, use_container_width=True)
+            # Display Filters (Dynamic)
+            num_f = conv.num_filters
+            cols = st.columns(min(num_f, 8)) # Display max 8 per row
+            
+            st.write(f"**2. Feature Maps (Conv Output)** {out_conv.shape}")
+            st.write("The network detects features like edges and curves.")
+            
+            for i in range(num_f):
+                # Simple grid logic for display if > 8
+                if i < 8:
+                    with cols[i]:
+                        f_map = out_conv[:, :, i]
+                        f_map = (f_map - f_map.min()) / (f_map.max() - f_map.min() + 1e-9)
+                        st.image(f_map, clamp=True, use_container_width=True)
 
             # 3. Pooling
             out_pool = pool.forward(out_conv)
             st.write(f"**3. Max Pooling (Downsampled)** {out_pool.shape}")
             st.write("Reduces size while keeping important features.")
             
-            cols_p = st.columns(8)
-            for i in range(8):
-                with cols_p[i]:
-                    f_map = out_pool[:, :, i]
-                    f_map = (f_map - f_map.min()) / (f_map.max() - f_map.min() + 1e-9)
-                    st.image(f_map, clamp=True, use_container_width=True)
+            cols_p = st.columns(min(num_f, 8))
+            for i in range(num_f):
+                if i < 8:
+                    with cols_p[i]:
+                        f_map = out_pool[:, :, i]
+                        f_map = (f_map - f_map.min()) / (f_map.max() - f_map.min() + 1e-9)
+                        st.image(f_map, clamp=True, use_container_width=True)
             
             # 4. Softmax
             probs = softmax.forward(out_pool)
